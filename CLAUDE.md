@@ -57,7 +57,7 @@ LaneDetectorNode.image_callback()
     ├─ white_mask  (H:0-180, S:0-80,   V:160-255)  → left_x, right_x
     ├─ yellow_mask (H:10-40, S:80-255, V:80-255)   → yellow_x
     ├─ _compute_error() → pixel error
-    ├─ PD controller  → /cmd_vel
+    ├─ PID controller  → /cmd_vel
     └─ _publish_debug() → /lane_detection/debug_img
 ```
 
@@ -66,54 +66,122 @@ LaneDetectorNode.image_callback()
 | Delay | Action |
 |-------|--------|
 | t=0s | Xvfb on `:1`, gzserver on Xvfb (needs GLX for camera), gzclient on `:0` (WSLg GUI), robot_state_publisher |
-| t=6s | Spawn robot at random position on road ring (radius 2.95–3.95 m, tangential yaw) |
+| t=6s | Spawn robot on top straight of capsule track: x ∈ [−1.5, 1.5], y = 1.35, yaw = 0 |
 | t=9s | Start `lane_detector_node` |
 
 `pkg_path` in the launch file is **hardcoded** as `~/turtlebot3_lane_ws/src/lane_detection` (not from the install space) to reference the `worlds/` directory.
 
-### Road Geometry (`worlds/two_lane_circle.world`)
+### Road Geometry (`worlds/two_lane_circle.world`) — Capsule (Stadium) Track
 
 ```
-4.2m  ── white outer boundary
-3.45m ── yellow dashed center line
-2.85m ── white inner boundary
-2.75m ── green inner island
+Shape: two 4.0 m straight sections + two 1.0 m-radius semicircular ends
+Semicircle centres: x = ±2.0 m
+
+Radii from each semicircle centre:
+  1.70 m  ── outer white boundary (outer edge)
+  1.64 m  ── road surface outer edge
+  1.35 m  ── yellow dashed centre line  /  lane centre
+  1.06 m  ── road surface inner edge
+  1.00 m  ── inner white boundary / green island edge
+
+Total track width: 0.70 m   (inner to outer edge)
+Lane centre on straights: y = ±1.35 m
 ```
 
-Robot targets the **inner (left) lane** — Indian LHT. Lane center ≈ 3.16 m radius.
+Robot targets the **inner (left) lane** — Indian LHT.
+
+Design constraints:
+- Lane width / robot width ≈ 0.70 / 0.178 ≈ 3.9 (spec ≥ 4:1, marginal)
+- Curve radius / robot width ≈ 1.00 / 0.178 ≈ 5.6 (spec ≥ 5:1 ✓)
 
 ### Error Computation — 6 Priority Cases (`_compute_error`)
 
 `error = target_x − image_center_x`. Positive → target is right of center → turn right (−ω).
 
-| Case | Visible markings | How target is computed |
-|------|-----------------|----------------------|
-| 1 | Both white edges | `target = (left_x + road_mid) / 2` |
-| 2 | Yellow + left white | `target = (left_x + yellow_x) / 2` |
-| 3 | Yellow + right white | Mirror yellow to infer inner white, then case 2 |
-| 4 | Yellow only | Steer yellow to 75% of image width |
-| 5 | Left white only | Steer left edge to 25% of image width |
+| Priority | Visible markings | How target is computed |
+|----------|-----------------|----------------------|
+| 1 | Yellow + left white | `(left_x + yellow_x) / 2 + FISHEYE_OUTWARD_BIAS_PX` |
+| 2 | Both white edges | `left_x + LANE_CENTER_OFFSET_FRAC × road_width + FISHEYE_OUTWARD_BIAS_PX` |
+| 3 | Yellow + right white | Mirror yellow → infer inner white → midpoint + bias |
+| 4 | Yellow only | Steer yellow to `YELLOW_TARGET_FRAC` (0.70) of image width |
+| 5 | Left white only | Steer inner edge to `LEFT_EDGE_TARGET_FRAC` (0.30) of image width |
 | 6 | Nothing | Not valid → SEARCHING state |
+
+`FISHEYE_OUTWARD_BIAS_PX = 10 px` is added in Cases 1–3 to compensate for
+the 182° fisheye lens compressing objects near the image edges.
 
 ### State Machine
 
-- **FOLLOWING**: `angular_z = -(KP * error + KD * d_error/dt)`. Linear speed scales from `LINEAR_MAX` (0.12 m/s) at zero angular demand to `LINEAR_MIN` (0.04 m/s) at max angular demand.
-- **SEARCHING**: Zero linear, rotate at `SEARCH_OMEGA` (0.25 rad/s) until a lane is detected. Triggers after `LANE_LOST_TTL` (2) consecutive invalid frames (~1.2 s).
+- **FOLLOWING**: Full PID controller. Linear speed scales from `LINEAR_MAX` (0.10 m/s)
+  at zero angular demand to `LINEAR_MIN` (0.04 m/s) at max angular demand.
+- **SEARCHING**: Zero linear velocity, rotate at `SEARCH_OMEGA` (0.25 rad/s) until a
+  lane marking is detected. Triggers after `LANE_LOST_TTL` (2) consecutive invalid
+  frames (~1.2 s). Integral term is reset on entry to prevent windup.
+- **Grace period**: When the lane is first lost (counter < TTL), the robot coasts
+  forward with `error = 0` (no correction) for up to ~0.6 s before switching to SEARCHING.
 
 ### Contour Filtering
 
-Blobs are filtered by area: `MIN_CONTOUR_AREA (20 px²) < area < MAX_CONTOUR_AREA (2500 px²)`. This rejects noise (< 20) and sky/background blobs (> 10,000 px²). Morphological OPEN (3×3 ellipse) removes speckle — deliberately no CLOSE, which was merging sky blobs with road markings.
+Blobs are filtered by area: `MIN_CONTOUR_AREA (20 px²) < area < MAX_CONTOUR_AREA (2500 px²)`.
+Morphological OPEN (3×3 ellipse) removes speckle — deliberately **no CLOSE**, which was
+merging sky blobs with road markings into one giant contour.
 
 ## Tuning Constants (all in `lane_detector_node.py`, module-level globals)
 
-All tuning is done by editing source directly — none of these are exposed as ROS parameters.
+All tuning is done by editing source directly — none are exposed as ROS parameters.
 
-| Constant | Default | Effect |
-|----------|---------|--------|
-| `KP` | 0.006 | Proportional gain; reduce if robot oscillates |
-| `KD` | 0.002 | Derivative gain; smooths oscillations |
-| `LINEAR_MAX` / `LINEAR_MIN` | 0.12 / 0.04 m/s | Forward speed range |
-| `ROI_TOP_FRAC` / `ROI_BOT_FRAC` | 0.35 / 0.70 | Horizon band scanned for markings |
-| `MAX_CONTOUR_AREA` | 2500 px² | Upper bound filters sky blobs |
-| `LANE_LOST_TTL` | 2 frames | Misses before SEARCHING (~1.2 s at 1.7 Hz) |
+### Speed & limits
+
+| Constant | Value | Effect |
+|----------|-------|--------|
+| `LINEAR_MAX` | 0.10 m/s | Forward speed at zero angular demand |
+| `LINEAR_MIN` | 0.04 m/s | Forward speed at max angular demand |
+| `ANGULAR_MAX` | 0.6 rad/s | Hard clamp on angular output |
 | `SEARCH_OMEGA` | 0.25 rad/s | Rotation speed when searching |
+
+### PID gains
+
+| Constant | Value | Effect |
+|----------|-------|--------|
+| `KP` | 0.008 | Proportional; increase for tighter curve tracking, decrease if oscillating |
+| `KI` | 0.0003 | Integral; eliminates steady-state offset on curves; anti-windup at `INTEGRAL_MAX = 150 px·s` |
+| `KD` | 0.001 | Derivative; kept low — 1.7 Hz makes raw derivative very noisy |
+| `DERIVATIVE_ALPHA` | 0.3 | Low-pass filter on derivative (`0 = off`, `1 = raw`) |
+
+### Detection & ROI
+
+| Constant | Value | Effect |
+|----------|-------|--------|
+| `ROI_TOP_FRAC` / `ROI_BOT_FRAC` | 0.35 / 0.70 | Horizon band scanned for markings |
+| `MIN_CONTOUR_AREA` | 20 px² | Rejects speckle |
+| `MAX_CONTOUR_AREA` | 2500 px² | Rejects sky/background blobs |
+| `LANE_LOST_TTL` | 2 frames | Consecutive misses before SEARCHING (~1.2 s at 1.7 Hz) |
+
+### Fisheye compensation
+
+| Constant | Value | Effect |
+|----------|-------|--------|
+| `FISHEYE_OUTWARD_BIAS_PX` | 10 px | Pushes lane-target outward to counter 182° lens compression |
+| `LANE_CENTER_OFFSET_FRAC` | 0.35 | Fraction of road width from inner edge to target (Case 2) |
+| `LEFT_EDGE_TARGET_FRAC` | 0.30 | Target image-fraction for inner-white edge (Case 5) |
+| `YELLOW_TARGET_FRAC` | 0.70 | Target image-fraction for yellow centre (Case 4) |
+
+## Subdirectory CLAUDE.md files
+
+| Path | Covers |
+|------|--------|
+| `lane_detection/CLAUDE.md` | All node files: detector, diagnose, respawn — full constant reference, case tables, debug guide |
+| `launch/CLAUDE.md` | Launch sequence, env vars, spawn logic, failure modes |
+
+## .claude/ reference files (auto-loaded by Claude Code)
+
+| Path | Covers |
+|------|--------|
+| `.claude/rules/code-style.md` | Python conventions, naming, comment style, forbidden patterns |
+| `.claude/rules/control-logic.md` | Full perception → error → PID pipeline with formulas |
+| `.claude/rules/development-rules.md` | Build rules, forbidden changes, git conventions, test checklist |
+| `.claude/rules/tuning-guide.md` | Step-by-step HSV, ROI, contour, PID, speed, fisheye tuning |
+| `.claude/specs/track-geometry.md` | Full capsule track dimensions, dash layout, spawn formula |
+| `.claude/specs/hardware.md` | Robot specs, camera properties, track constraints |
+| `.claude/specs/ros-interface.md` | Topics, services, plugins, TF tree, CLI commands |
+| `.claude/specs/tech-stack.md` | OS, ROS, Gazebo, Python libraries, workspace layout |
