@@ -1,10 +1,10 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
-  <world name="two_lane_circle">
+  <world name="capsule_track">
 
     <include><uri>model://sun</uri></include>
 
-    <!-- Gray asphalt base -->
+    <!-- ─── Ground plane (dark asphalt) ─── -->
     <model name="ground_plane">
       <static>true</static>
       <link name="link">
@@ -18,95 +18,222 @@
       </link>
     </model>
 
-    <!-- Outer white boundary ring (radius 4.2 m, visible strip 4.1–4.2 m) -->
-    <model name="outer_white_ring">
-      <static>true</static>
-      <pose>0 0 0.001 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>4.2</radius><length>0.002</length></cylinder></geometry>
-          <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
-        </visual>
-      </link>
+    <!--
+      ════════════════════════════════════════════════════════════════════
+      CAPSULE (STADIUM) TRACK GEOMETRY
+      ════════════════════════════════════════════════════════════════════
+
+      Shape: two parallel straights connected by semicircular ends.
+        Straight length : 4.0 m  (semicircle centres at x = ±2.0 m)
+        Track width     : 0.70 m (inner to outer edge)
+        Inner edge r    : 1.00 m from each semicircle centre
+        Outer edge r    : 1.70 m from each semicircle centre
+        Lane centre     : 1.35 m from each semicircle centre
+                          y = ±1.35 m on the straight sections
+
+      Lane marking widths: 0.06 m (white boundaries + yellow dashes)
+
+      Layer z-offsets (thin visual discs stacked above ground):
+        0.001  outer white boundary   (r = 1.70 m)
+        0.002  dark road surface      (r = 1.64 m  inner edge of outer white)
+        0.003  inner white boundary   (r = 1.06 m  outer edge of inner white)
+        0.004  green inner island     (r = 1.00 m)
+        0.005  yellow centre dashes
+
+      Each layer = two cylinders (caps at x = ±2.0) + one box (straight
+      middle section).  Overlapping volumes share the same colour so
+      z-fighting between layers provides the correct visual order.
+
+      Design constraints (TurtleBot3 Burger: ~0.18 m wide):
+        lane width / robot width ≈ 0.70 / 0.18 ≈ 3.9  (spec ≥ 4:1; ≈OK)
+        curve r    / robot width ≈ 1.00 / 0.18 ≈ 5.6  (spec ≥ 5:1  ✓)
+      ════════════════════════════════════════════════════════════════════
+    -->
+
+    <!-- ═══════ LAYER 1 — Outer white boundary  z = 0.001 ═══════ -->
+    <model name="outer_white_left">
+      <static>true</static><pose>-2.0 0 0.001 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.70</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+      </visual></link>
     </model>
 
-    <!-- Dark road surface (radius 4.1 m) -->
-    <model name="road_surface">
-      <static>true</static>
-      <pose>0 0 0.002 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>4.1</radius><length>0.002</length></cylinder></geometry>
-          <material><ambient>0.18 0.18 0.18 1</ambient><diffuse>0.18 0.18 0.18 1</diffuse></material>
-        </visual>
-      </link>
+    <model name="outer_white_right">
+      <static>true</static><pose>2.0 0 0.001 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.70</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+      </visual></link>
     </model>
 
-    <!-- Inner white boundary ring (radius 2.85 m, visible strip 2.75–2.85 m) -->
-    <model name="inner_white_ring">
-      <static>true</static>
-      <pose>0 0 0.003 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>2.85</radius><length>0.002</length></cylinder></geometry>
-          <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
-        </visual>
-      </link>
+    <!-- box size = (straight_len=4.0, 2*outer_r=3.4, layer_h=0.002) -->
+    <model name="outer_white_rect">
+      <static>true</static><pose>0 0 0.001 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><box><size>4.0 3.4 0.002</size></box></geometry>
+        <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+      </visual></link>
     </model>
 
-    <!-- Green inner island (radius 2.75 m) -->
-    <model name="inner_island">
-      <static>true</static>
-      <pose>0 0 0.004 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>2.75</radius><length>0.002</length></cylinder></geometry>
-          <material><ambient>0.18 0.42 0.18 1</ambient><diffuse>0.18 0.42 0.18 1</diffuse></material>
-        </visual>
-      </link>
+    <!-- ═══════ LAYER 2 — Dark road surface  z = 0.002 ═══════ -->
+    <!-- radius 1.64 = 1.70 − 0.06 (inner edge of outer white line) -->
+    <model name="road_left">
+      <static>true</static><pose>-2.0 0 0.002 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.64</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.18 0.18 0.18 1</ambient><diffuse>0.18 0.18 0.18 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <model name="road_right">
+      <static>true</static><pose>2.0 0 0.002 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.64</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.18 0.18 0.18 1</ambient><diffuse>0.18 0.18 0.18 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <model name="road_rect">
+      <static>true</static><pose>0 0 0.002 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><box><size>4.0 3.28 0.002</size></box></geometry>
+        <material><ambient>0.18 0.18 0.18 1</ambient><diffuse>0.18 0.18 0.18 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <!-- ═══════ LAYER 3 — Inner white boundary  z = 0.003 ═══════ -->
+    <!-- radius 1.06 = 1.00 + 0.06 (outer edge of inner white line) -->
+    <model name="inner_white_left">
+      <static>true</static><pose>-2.0 0 0.003 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.06</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <model name="inner_white_right">
+      <static>true</static><pose>2.0 0 0.003 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.06</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <model name="inner_white_rect">
+      <static>true</static><pose>0 0 0.003 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><box><size>4.0 2.12 0.002</size></box></geometry>
+        <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <!-- ═══════ LAYER 4 — Green inner island  z = 0.004 ═══════ -->
+    <model name="island_left">
+      <static>true</static><pose>-2.0 0 0.004 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.0</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.18 0.42 0.18 1</ambient><diffuse>0.18 0.42 0.18 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <model name="island_right">
+      <static>true</static><pose>2.0 0 0.004 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><cylinder><radius>1.0</radius><length>0.002</length></cylinder></geometry>
+        <material><ambient>0.18 0.42 0.18 1</ambient><diffuse>0.18 0.42 0.18 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <model name="island_rect">
+      <static>true</static><pose>0 0 0.004 0 0 0</pose>
+      <link name="link"><visual name="v">
+        <geometry><box><size>4.0 2.0 0.002</size></box></geometry>
+        <material><ambient>0.18 0.42 0.18 1</ambient><diffuse>0.18 0.42 0.18 1</diffuse></material>
+      </visual></link>
     </model>
 
     <!--
-      Yellow center-line dashes — 16 segments at 22.5° intervals.
-      Dash size: 0.45 m long × 0.12 m wide (widened from 0.08 for camera detection).
-      All placed at radius 3.45 m, oriented tangentially.
+      ═══════ LAYER 5 — Yellow dashed centre line  z = 0.005 ═══════
 
-      Positions:  x = 3.45·cos(θ),  y = 3.45·sin(θ)
-      Yaw:        θ + π/2  (rotate box so its long axis is tangential)
+      Dash: 0.4 m long × 0.06 m wide × 0.002 m tall
+      Gap between consecutive dashes: 0.25 m
+      Period: 0.65 m  (0.40 dash + 0.25 gap)
 
-      θ =   0°  →  (3.45,  0.00), yaw=1.5708
-      θ =  22.5° → (3.19,  1.32), yaw=1.9635
-      θ =  45°  →  (2.44,  2.44), yaw=2.3562
-      θ =  67.5° → (1.32,  3.19), yaw=2.7489
-      θ =  90°  →  (0.00,  3.45), yaw=3.1416
-      θ = 112.5° → (-1.32, 3.19), yaw=3.5343
-      θ = 135°  →  (-2.44, 2.44), yaw=3.9270
-      θ = 157.5° → (-3.19, 1.32), yaw=4.3197
-      θ = 180°  →  (-3.45, 0.00), yaw=4.7124
-      θ = 202.5° → (-3.19,-1.32), yaw=5.1051
-      θ = 225°  →  (-2.44,-2.44), yaw=5.4978
-      θ = 247.5° → (-1.32,-3.19), yaw=5.8905
-      θ = 270°  →  (0.00, -3.45), yaw=6.2832
-      θ = 292.5° → (1.32, -3.19), yaw=6.6759
-      θ = 315°  →  (2.44, -2.44), yaw=7.0686
-      θ = 337.5° → (3.19, -1.32), yaw=7.4613
+      Straight sections: 6 dashes each, centred along 4.0 m span
+        margin = (4.0 − (6×0.4 + 5×0.25)) / 2 = 0.175 m
+        x centres: −1.625, −0.975, −0.325, 0.325, 0.975, 1.625
+        yaw = 0  (long axis along x)
+
+      Curved sections: 6 dashes per semicircle at r = 1.35 m
+        arc length = π × 1.35 = 4.241 m
+        margin = (4.241 − 3.65) / 2 = 0.296 m  →  start angle offset 0.367 rad
+        angular step = 0.65 / 1.35 = 0.4815 rad
+
+      Right curve  (centre x = +2.0):  θ₀ = −π/2 + 0.367 = −1.204 rad
+      Left  curve  (centre x = −2.0):  θ₀ = +π/2 + 0.367 = +1.938 rad
+
+      For each dash:
+        x   = cx + 1.35·cos(θ)
+        y   = cy + 1.35·sin(θ)
+        yaw = θ + π/2  (long axis tangential)
     -->
-    <model name="dash_01"><static>true</static><pose>3.45  0.00  0.005 0 0 1.5708</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_02"><static>true</static><pose>3.19  1.32  0.005 0 0 1.9635</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_03"><static>true</static><pose>2.44  2.44  0.005 0 0 2.3562</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_04"><static>true</static><pose>1.32  3.19  0.005 0 0 2.7489</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_05"><static>true</static><pose>0.00  3.45  0.005 0 0 3.1416</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_06"><static>true</static><pose>-1.32  3.19  0.005 0 0 3.5343</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_07"><static>true</static><pose>-2.44  2.44  0.005 0 0 3.9270</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_08"><static>true</static><pose>-3.19  1.32  0.005 0 0 4.3197</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_09"><static>true</static><pose>-3.45  0.00  0.005 0 0 4.7124</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_10"><static>true</static><pose>-3.19 -1.32  0.005 0 0 5.1051</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_11"><static>true</static><pose>-2.44 -2.44  0.005 0 0 5.4978</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_12"><static>true</static><pose>-1.32 -3.19  0.005 0 0 5.8905</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_13"><static>true</static><pose>0.00 -3.45  0.005 0 0 6.2832</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_14"><static>true</static><pose>1.32 -3.19  0.005 0 0 6.6759</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_15"><static>true</static><pose>2.44 -2.44  0.005 0 0 7.0686</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
-    <model name="dash_16"><static>true</static><pose>3.19 -1.32  0.005 0 0 7.4613</pose><link name="link"><visual name="v"><geometry><box><size>0.45 0.12 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+
+    <!-- ── Top straight  (y = +1.35, yaw = 0) ── -->
+    <model name="dash_ts_1"><static>true</static><pose>-1.625  1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_ts_2"><static>true</static><pose>-0.975  1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_ts_3"><static>true</static><pose>-0.325  1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_ts_4"><static>true</static><pose> 0.325  1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_ts_5"><static>true</static><pose> 0.975  1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_ts_6"><static>true</static><pose> 1.625  1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+
+    <!-- ── Bottom straight  (y = −1.35, yaw = 0) ── -->
+    <model name="dash_bs_1"><static>true</static><pose>-1.625 -1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_bs_2"><static>true</static><pose>-0.975 -1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_bs_3"><static>true</static><pose>-0.325 -1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_bs_4"><static>true</static><pose> 0.325 -1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_bs_5"><static>true</static><pose> 0.975 -1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_bs_6"><static>true</static><pose> 1.625 -1.35 0.005 0 0 0</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+
+    <!--
+      Right curve dashes — semicircle centre (2.0, 0)
+      θ[i] = −1.204 + i×0.4815 rad   (i = 0..5)
+      x = 2.0 + 1.35·cos(θ),  y = 1.35·sin(θ),  yaw = θ + π/2
+
+      i  θ(rad)    x       y       yaw
+      0  −1.204   2.479  −1.262   0.367
+      1  −0.722   3.016  −0.889   0.849
+      2  −0.241   3.311  −0.322   1.330
+      3  +0.241   3.311  +0.322   1.812
+      4  +0.722   3.016  +0.889   2.293
+      5  +1.204   2.479  +1.262   2.775
+    -->
+    <model name="dash_rc_1"><static>true</static><pose> 2.479 -1.262 0.005 0 0 0.367</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_rc_2"><static>true</static><pose> 3.016 -0.889 0.005 0 0 0.849</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_rc_3"><static>true</static><pose> 3.311 -0.322 0.005 0 0 1.330</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_rc_4"><static>true</static><pose> 3.311  0.322 0.005 0 0 1.812</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_rc_5"><static>true</static><pose> 3.016  0.889 0.005 0 0 2.293</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_rc_6"><static>true</static><pose> 2.479  1.262 0.005 0 0 2.775</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+
+    <!--
+      Left curve dashes — semicircle centre (−2.0, 0)
+      θ[i] = +1.938 + i×0.4815 rad   (i = 0..5)
+      x = −2.0 + 1.35·cos(θ),  y = 1.35·sin(θ),  yaw = θ + π/2
+
+      i  θ(rad)    x       y       yaw
+      0  +1.938  −2.479  +1.262   3.509
+      1  +2.419  −3.016  +0.889   3.990
+      2  +2.901  −3.311  +0.322   4.472
+      3  +3.382  −3.311  −0.322   4.953
+      4  +3.864  −3.016  −0.889   5.435
+      5  +4.345  −2.479  −1.262   5.916
+    -->
+    <model name="dash_lc_1"><static>true</static><pose>-2.479  1.262 0.005 0 0 3.509</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_lc_2"><static>true</static><pose>-3.016  0.889 0.005 0 0 3.990</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_lc_3"><static>true</static><pose>-3.311  0.322 0.005 0 0 4.472</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_lc_4"><static>true</static><pose>-3.311 -0.322 0.005 0 0 4.953</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_lc_5"><static>true</static><pose>-3.016 -0.889 0.005 0 0 5.435</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
+    <model name="dash_lc_6"><static>true</static><pose>-2.479 -1.262 0.005 0 0 5.916</pose><link name="link"><visual name="v"><geometry><box><size>0.4 0.06 0.002</size></box></geometry><material><ambient>0.9 0.75 0.0 1</ambient><diffuse>0.9 0.75 0.0 1</diffuse></material></visual></link></model>
 
     <physics name="default_physics" default="0" type="ode">
       <gravity>0 0 -9.8</gravity>
