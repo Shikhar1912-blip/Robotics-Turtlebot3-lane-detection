@@ -84,7 +84,7 @@ Follow these to avoid breaking the simulation or introducing subtle bugs.
 ## Testing checklist before committing
 
 ```
-□ ros2 topic hz /camera/image_raw  → 1.5–2.0 Hz  (camera is working)
+□ ros2 topic hz /camera/image_raw  → ~15 Hz  (OV2710 USB camera is working)
 □ ros2 topic echo /cmd_vel         → non-zero angular.z on curves
 □ rqt_image_view /lane_detection/debug_img  → coloured overlays visible over lane markings
 □ Robot completes at least one full lap without entering SEARCHING

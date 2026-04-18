@@ -6,14 +6,14 @@
 
 | Topic | Message type | Hz | Producer | Consumer |
 |-------|-----------|----|----------|----------|
-| `/camera/image_raw` | `sensor_msgs/Image` | ~1.7 | Gazebo camera plugin | `lane_detector_node` |
+| `/camera/image_raw` | `sensor_msgs/Image` | ~15 | OV2710 2MP USB camera | `lane_detector_node` |
 
 ### Published
 
 | Topic | Message type | Hz | Producer | Consumer |
 |-------|-----------|----|----------|----------|
-| `/cmd_vel` | `geometry_msgs/Twist` | ~1.7 | `lane_detector_node` | Gazebo diff-drive plugin |
-| `/lane_detection/debug_img` | `sensor_msgs/Image` | ~1.7 | `lane_detector_node` | `rqt_image_view` (manual) |
+| `/cmd_vel` | `geometry_msgs/Twist` | ~15 | `lane_detector_node` | Gazebo diff-drive plugin |
+| `/lane_detection/debug_img` | `sensor_msgs/Image` | ~15 | `lane_detector_node` | `rqt_image_view` (manual) |
 | `/robot_description` | `std_msgs/String` | latched | `robot_state_publisher` | TF consumers |
 
 ### `/cmd_vel` field usage
@@ -88,7 +88,7 @@ The lane detector does not use TF — all processing is in image space.
 ```bash
 # Check topics
 ros2 topic list
-ros2 topic hz /camera/image_raw        # should be ~1.7 Hz
+ros2 topic hz /camera/image_raw        # should be ~15 Hz
 ros2 topic echo /cmd_vel               # shows live steering output
 
 # Inspect image

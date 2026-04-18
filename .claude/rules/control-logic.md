@@ -169,8 +169,8 @@ self._filtered_deriv = DERIVATIVE_ALPHA * raw_deriv + (1 − DERIVATIVE_ALPHA) *
 D = KD * self._filtered_deriv   # KD = 0.001, DERIVATIVE_ALPHA = 0.3
 ```
 
-At 1.7 Hz, a 3-pixel jitter produces `d_error ≈ 5 px/s`. The filter coefficient `0.3`
-means 70% of the previous smoothed value is retained each frame, heavily damping noise.
+At 15 Hz, a 3-pixel jitter produces `d_error ≈ 45 px/s`. The filter coefficient `0.3`
+means 70% of the previous smoothed value is retained each frame, damping noise.
 
 ### Speed scaling
 
@@ -210,7 +210,7 @@ Robot slows to `LINEAR_MIN` (0.04 m/s) at maximum angular demand, and runs at
                                           FOLLOWING
 ```
 
-**LANE_LOST_TTL = 2 frames ≈ 1.2 s** at 1.7 Hz.
+**LANE_LOST_TTL = 2 frames ≈ 0.13 s** at 15 Hz.
 
 ---
 
@@ -218,7 +218,7 @@ Robot slows to `LINEAR_MIN` (0.04 m/s) at maximum angular demand, and runs at
 
 ```python
 if self._last_time is None:
-    dt = 0.6          # first frame: assume ~1.7 Hz
+    dt = 0.067        # first frame: assume ~15 Hz (OV2710 USB camera)
 else:
     dt = max(now - self._last_time, 0.005)   # clamp avoids div-by-zero
 self._last_time = now

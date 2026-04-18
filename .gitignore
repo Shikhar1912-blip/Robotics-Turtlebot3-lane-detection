@@ -1,0 +1,33 @@
+# ── ROS 2 / colcon ────────────────────────────────
+build/
+install/
+log/
+*.log
+
+# ── Python ────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+*.egg
+.eggs/
+
+# ── Gazebo ────────────────────────────────────────
+# Gazebo model cache (auto-downloaded at runtime)
+~/.gazebo/
+
+# ── Diagnostic output ─────────────────────────────
+/tmp/diag_*.png
+
+# ── OS / IDE ──────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Misc ──────────────────────────────────────────
+*.swp
+*.swo
+*~

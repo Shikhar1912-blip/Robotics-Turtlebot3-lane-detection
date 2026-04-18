@@ -94,7 +94,7 @@ resolved at launch time, before `colcon` install-space symlinks are evaluated.
 
 ```bash
 # In a second terminal (source both setup files first):
-ros2 topic hz /camera/image_raw          # expect ~1.7 Hz (software rendering)
+ros2 topic hz /camera/image_raw          # expect ~15 Hz (OV2710 USB camera)
 ros2 topic echo /cmd_vel                 # non-zero angular.z = robot is steering
 ros2 run rqt_image_view rqt_image_view   # subscribe to /lane_detection/debug_img
 ```

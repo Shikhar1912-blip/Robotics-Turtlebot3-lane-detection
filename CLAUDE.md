@@ -30,7 +30,7 @@ ros2 launch lane_detection simulation.launch.py
 
 ```bash
 source /opt/ros/humble/setup.bash && source ~/turtlebot3_lane_ws/install/setup.bash
-ros2 topic hz /camera/image_raw          # expect ~1.7 Hz (software rendering)
+ros2 topic hz /camera/image_raw          # expect ~15 Hz (OV2710 USB camera)
 ros2 topic echo /cmd_vel                 # non-zero values = robot steering
 ros2 run rqt_image_view rqt_image_view   # view /lane_detection/debug_img
 ```
@@ -48,7 +48,7 @@ ros2 run lane_detection diagnose_camera
 ### Data Flow
 
 ```
-/camera/image_raw  (~1.7 Hz)
+/camera/image_raw  (~15 Hz, OV2710 2MP USB camera)
     │
     ▼
 LaneDetectorNode.image_callback()
@@ -116,9 +116,9 @@ the 182° fisheye lens compressing objects near the image edges.
   at zero angular demand to `LINEAR_MIN` (0.04 m/s) at max angular demand.
 - **SEARCHING**: Zero linear velocity, rotate at `SEARCH_OMEGA` (0.25 rad/s) until a
   lane marking is detected. Triggers after `LANE_LOST_TTL` (2) consecutive invalid
-  frames (~1.2 s). Integral term is reset on entry to prevent windup.
+  frames (~0.13 s at 15 Hz). Integral term is reset on entry to prevent windup.
 - **Grace period**: When the lane is first lost (counter < TTL), the robot coasts
-  forward with `error = 0` (no correction) for up to ~0.6 s before switching to SEARCHING.
+  forward with `error = 0` (no correction) for up to ~0.067 s per frame before switching to SEARCHING.
 
 ### Contour Filtering
 
@@ -155,7 +155,7 @@ All tuning is done by editing source directly — none are exposed as ROS parame
 | `ROI_TOP_FRAC` / `ROI_BOT_FRAC` | 0.35 / 0.70 | Horizon band scanned for markings |
 | `MIN_CONTOUR_AREA` | 20 px² | Rejects speckle |
 | `MAX_CONTOUR_AREA` | 2500 px² | Rejects sky/background blobs |
-| `LANE_LOST_TTL` | 2 frames | Consecutive misses before SEARCHING (~1.2 s at 1.7 Hz) |
+| `LANE_LOST_TTL` | 2 frames | Consecutive misses before SEARCHING (~0.13 s at 15 Hz) |
 
 ### Fisheye compensation
 

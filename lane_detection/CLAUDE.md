@@ -18,7 +18,7 @@ This directory contains all executable Python nodes for the lane-detection packa
 ### Data flow
 
 ```
-/camera/image_raw  (~1.7 Hz, software-rendered via Xvfb)
+/camera/image_raw  (~15 Hz, OV2710 2MP USB camera)
     │
     ▼
 image_callback()
@@ -53,7 +53,7 @@ image_callback()
 | `KP` | 0.008 | Proportional; increase if robot doesn't track curves tightly |
 | `KI` | 0.0003 | Integral; eliminates steady-state offset on constant-curvature sections |
 | `INTEGRAL_MAX` | 150.0 px·s | Anti-windup clamp; prevents integral runaway |
-| `KD` | 0.001 | Derivative; kept low — 1.7 Hz makes raw derivative very noisy |
+| `KD` | 0.001 | Derivative; kept low — sensor jitter at 15 Hz warrants a conservative value |
 | `DERIVATIVE_ALPHA` | 0.3 | Low-pass weight on derivative: `0.3*raw + 0.7*prev`. Set to 0 to disable D term |
 
 #### Detection thresholds
@@ -64,7 +64,7 @@ image_callback()
 | `ROI_BOT_FRAC` | 0.70 | ROI ends 70% from top (cuts green island) |
 | `MIN_CONTOUR_AREA` | 20 px² | Rejects speckle noise |
 | `MAX_CONTOUR_AREA` | 2500 px² | Rejects sky/background blobs (>10 000 px²) |
-| `LANE_LOST_TTL` | 2 frames | Consecutive misses before → SEARCHING (~1.2 s at 1.7 Hz) |
+| `LANE_LOST_TTL` | 2 frames | Consecutive misses before → SEARCHING (~0.13 s at 15 Hz) |
 | `DEBUG_EVERY_N` | 1 | Publish debug image every N frames (1 = every frame) |
 
 #### Lane-centering & fisheye compensation
@@ -99,7 +99,7 @@ image_callback()
 └──────────────┘  LANE_LOST_TTL misses └─────────────┘
                   (integral reset)
 
-Grace period: first lost frame(s) within TTL → publish error=0 (coast forward, no correction).
+Grace period: first lost frame(s) within TTL → publish error=0 (coast forward, no correction). Each frame ≈ 0.067 s at 15 Hz.
 ```
 
 **Speed scaling (FOLLOWING):**

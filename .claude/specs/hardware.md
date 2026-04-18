@@ -25,25 +25,25 @@
 
 | Property | Value |
 |----------|-------|
-| Type | Fisheye (wide-angle) |
-| Field of view | 182° (simulated in Gazebo via wide-angle camera plugin) |
+| Model | OV2710 2MP USB camera |
+| Sensor | OmniVision OV2710, 1/2.7" CMOS |
+| Resolution | 2MP (1920×1080 or configurable) |
+| Frame rate | 15 Hz (configured capture frequency) |
 | Mount height | ~9.3 cm above ground |
 | Orientation | Forward-facing, slight downward tilt |
-| Resolution | Set by Gazebo model (typically 640×480 or 320×240) |
-| Frame rate | ~1.7 Hz under software Mesa rendering (Xvfb + `LIBGL_ALWAYS_SOFTWARE=1`) |
+| Interface | USB (V4L2) |
 | Topic | `/camera/image_raw` (`sensor_msgs/Image`, encoding `bgr8`) |
 | Debug topic | `/lane_detection/debug_img` (`sensor_msgs/Image`) |
 
-### Why 1.7 Hz?
+### Frame rate and controller timing
 
-Mesa LLVMpipe software rasteriser has no GPU acceleration. Each camera frame
-requires a full software render of the 3D scene. At Gazebo's default physics
-rate (1000 Hz), camera rendering is the bottleneck — actual throughput under
-WSL2 + Xvfb is ~1.7 frames/second.
+The OV2710 is configured to capture at **15 Hz** (`dt ≈ 0.067 s` per frame).
 
 **Controller design consequence:** All timing constants (derivative filter,
-integral accumulator, `dt` estimate) assume a ~0.6 s frame interval, not
-a standard 30 Hz video rate.
+integral accumulator, `dt` estimate) assume a ~0.067 s frame interval.
+This is significantly faster than the previous software-rendered simulation rate
+(~1.7 Hz), so PID gains and integral limits may need retuning if ported back
+to a purely simulated environment.
 
 ---
 

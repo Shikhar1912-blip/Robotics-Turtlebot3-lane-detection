@@ -12,7 +12,7 @@ All constants are in `lane_detection/lane_detector_node.py` at the module level.
 export TURTLEBOT3_MODEL=burger && ros2 launch lane_detection simulation.launch.py
 
 # Terminal 2: verify camera frames are arriving
-ros2 topic hz /camera/image_raw        # expect 1.5–2.0 Hz
+ros2 topic hz /camera/image_raw        # expect ~15 Hz (OV2710 USB camera)
 
 # Terminal 3: one-shot HSV diagnostic
 ros2 run lane_detection diagnose_camera
@@ -110,7 +110,7 @@ Set `KI = 0` first to tune P+D, then add integral last.
 
 ### Derivative (KD = 0.001, DERIVATIVE_ALPHA = 0.3)
 
-Damps oscillations. At 1.7 Hz the derivative is inherently noisy — keep KD low.
+Damps oscillations. At 15 Hz the derivative is less noisy than at slow frame rates, but sensor jitter still warrants a low-pass filter — keep KD conservative.
 
 | Symptom | Action |
 |---------|--------|
