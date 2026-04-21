@@ -1,12 +1,13 @@
 # launch/ — CLAUDE.md
 
-This directory contains the single launch file that starts the complete lane-detection simulation.
+This directory contains launch files for simulation and physical hardware.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `simulation.launch.py` | Starts Xvfb, Gazebo (server + client), robot_state_publisher, spawns robot, starts lane detector |
+| `hardware.launch.py` | Physical TurtleBot3 — starts `usb_cam_node` (OV2710 on `/dev/video0`) + `lane_detector_node` |
 
 ---
 
@@ -81,14 +82,27 @@ ros2 run lane_detection respawn_robot
 ### File paths
 
 ```python
-pkg_path   = ~/turtlebot3_lane_ws/src/lane_detection   # hardcoded — references worlds/ dir
+pkg_path   = get_package_share_directory('lane_detection')  # worlds/ is installed via setup.py
 world_file = pkg_path/worlds/two_lane_circle.world
 robot_sdf  = turtlebot3_gazebo/models/turtlebot3_burger_cam/model.sdf
 robot_urdf = turtlebot3_gazebo/urdf/turtlebot3_burger_cam.urdf
 ```
 
-`pkg_path` is hardcoded (not from the install space) because the world file must be
-resolved at launch time, before `colcon` install-space symlinks are evaluated.
+`pkg_path` uses `get_package_share_directory` — `setup.py` installs `worlds/*.world` to the
+share directory so this resolves correctly from the install space.
+
+### hardware.launch.py
+
+For running on a physical TurtleBot3 with the OV2710 USB camera (no Gazebo required):
+
+```bash
+ros2 launch lane_detection hardware.launch.py
+ros2 launch lane_detection hardware.launch.py device:=/dev/video1
+ros2 launch lane_detection hardware.launch.py width:=1280 height:=720
+```
+
+Starts `usb_cam_node` (MJPEG capture → `/camera/image_raw` at 15 Hz) and `lane_detector_node`.
+Uses real wall clock (`use_sim_time` defaults to False).
 
 ### Verify the simulation is working
 

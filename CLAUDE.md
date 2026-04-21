@@ -69,7 +69,9 @@ LaneDetectorNode.image_callback()
 | t=6s | Spawn robot on top straight of capsule track: x ∈ [−1.5, 1.5], y = 1.35, yaw = 0 |
 | t=9s | Start `lane_detector_node` |
 
-`pkg_path` in the launch file is **hardcoded** as `~/turtlebot3_lane_ws/src/lane_detection` (not from the install space) to reference the `worlds/` directory.
+`pkg_path` is resolved via `get_package_share_directory('lane_detection')` — `setup.py` installs `worlds/` into the share directory, so this works correctly from the install space.
+
+**Hardware (physical robot):** `ros2 launch lane_detection hardware.launch.py` — starts `usb_cam_node` on `/dev/video0` at 15 Hz + `lane_detector_node`. Accepts `device`, `width`, `height`, `framerate` arguments.
 
 ### Road Geometry (`worlds/two_lane_circle.world`) — Capsule (Stadium) Track
 
@@ -102,12 +104,12 @@ Design constraints:
 |----------|-----------------|----------------------|
 | 1 | Yellow + left white | `(left_x + yellow_x) / 2 + FISHEYE_OUTWARD_BIAS_PX` |
 | 2 | Both white edges | `left_x + LANE_CENTER_OFFSET_FRAC × road_width + FISHEYE_OUTWARD_BIAS_PX` |
-| 3 | Yellow + right white | Mirror yellow → infer inner white → midpoint + bias |
-| 4 | Yellow only | Steer yellow to `YELLOW_TARGET_FRAC` (0.70) of image width |
-| 5 | Left white only | Steer inner edge to `LEFT_EDGE_TARGET_FRAC` (0.30) of image width |
+| 3 | Left white only | Steer inner edge to `LEFT_EDGE_TARGET_FRAC` (0.30) of image width |
+| 4 | Yellow + right white | Mirror yellow → infer inner white → midpoint + bias |
+| 5 | Yellow only | Steer yellow to `YELLOW_TARGET_FRAC` (0.70) of image width |
 | 6 | Nothing | Not valid → SEARCHING state |
 
-`FISHEYE_OUTWARD_BIAS_PX = 10 px` is added in Cases 1–3 to compensate for
+`FISHEYE_OUTWARD_BIAS_PX = 10 px` is added in Cases 1, 2, and 4 to compensate for
 the 182° fisheye lens compressing objects near the image edges.
 
 ### State Machine

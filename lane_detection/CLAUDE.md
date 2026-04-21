@@ -72,9 +72,9 @@ image_callback()
 | Constant | Value | Effect |
 |----------|-------|--------|
 | `LANE_CENTER_OFFSET_FRAC` | 0.35 | Fraction of road width from inner edge to target (Case 2) |
-| `LEFT_EDGE_TARGET_FRAC` | 0.30 | Target image-fraction for inner-white edge (Case 5) |
-| `YELLOW_TARGET_FRAC` | 0.70 | Target image-fraction for yellow centre (Case 4) |
-| `FISHEYE_OUTWARD_BIAS_PX` | 10 px | Added to Cases 1–3 to counter 182° fisheye compression near image edges |
+| `LEFT_EDGE_TARGET_FRAC` | 0.30 | Target image-fraction for inner-white edge (Case 3) |
+| `YELLOW_TARGET_FRAC` | 0.70 | Target image-fraction for yellow centre (Case 5) |
+| `FISHEYE_OUTWARD_BIAS_PX` | 10 px | Added to Cases 1, 2, 4 to counter 182° fisheye compression near image edges |
 
 ### Error computation — `_compute_error()` (6 priority cases)
 
@@ -84,9 +84,9 @@ image_callback()
 |----------|---------|----------------------|
 | 1 | Yellow + left white | `(left_x + yellow_x) / 2 + FISHEYE_OUTWARD_BIAS_PX` |
 | 2 | Both white edges | `left_x + LANE_CENTER_OFFSET_FRAC * road_width + FISHEYE_OUTWARD_BIAS_PX` |
-| 3 | Yellow + right white | Mirror yellow to infer inner white → midpoint + bias |
-| 4 | Yellow only | Steer yellow to `YELLOW_TARGET_FRAC` × image width |
-| 5 | Left white only | Steer inner edge to `LEFT_EDGE_TARGET_FRAC` × image width |
+| 3 | Left white only | Steer inner edge to `LEFT_EDGE_TARGET_FRAC` × image width |
+| 4 | Yellow + right white | Mirror yellow to infer inner white → midpoint + bias |
+| 5 | Yellow only | Steer yellow to `YELLOW_TARGET_FRAC` × image width |
 | 6 | Nothing | `valid = False` → state machine decides |
 
 ### State machine

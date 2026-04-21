@@ -13,8 +13,9 @@ Robotics-Turtlebot3-lane-detection/      ← ROS 2 ament_python package root
 │   └── respawn_robot.py                  # Robot respawn / recovery node
 │
 ├── launch/
-│   └── simulation.launch.py             # Full sim launch: Xvfb, gzserver, gzclient,
-│                                        #   robot_state_publisher, spawn, lane_detector
+│   ├── simulation.launch.py             # Full sim launch: Xvfb, gzserver, gzclient,
+│   │                                    #   robot_state_publisher, spawn, lane_detector
+│   └── hardware.launch.py               # Physical robot launch: usb_cam_node + lane_detector
 │
 ├── worlds/
 │   └── two_lane_circle.world            # Gazebo world — capsule track with lane markings
@@ -58,14 +59,19 @@ The Python package containing all ROS 2 node source files.
   and publishes `/cmd_vel` + `/lane_detection/debug_img`.
 - **`diagnose_camera.py`** — Standalone diagnostic. Saves `/tmp/diag_*.png` and prints
   HSV stats. Run while sim is live to verify mask coverage.
-- **`respawn_robot.py`** — Respawn / recovery node. Monitors robot state and teleports
-  back to a random road pose when the robot leaves the track.
+- **`respawn_robot.py`** — Manual one-shot respawn tool. Run it while the simulation is
+  live; it calls `/delete_entity`, picks a new pose, calls `/spawn_entity`, then exits.
+  Note: spawn geometry still uses old circular-track radius constants (`SPAWN_RADIUS_MIN/MAX`)
+  and needs updating to match the capsule track (`y = 1.35`, `x ∈ [−1.5, 1.5]`).
 
 ### `launch/`
 
 ROS 2 launch files. `simulation.launch.py` orchestrates the full simulation:
 Xvfb virtual display → gzserver (on `:1`) → gzclient (on `:0`) →
 robot_state_publisher → spawn robot → lane_detector_node.
+
+`hardware.launch.py` is for physical TurtleBot3: starts `usb_cam_node` (OV2710 on `/dev/video0`)
+and `lane_detector_node` without any Gazebo dependency.
 
 ### `worlds/`
 
