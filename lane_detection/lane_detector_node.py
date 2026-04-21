@@ -164,7 +164,7 @@ class LaneDetectorNode(Node):
 
         # ── PID controller time-step ──────────────────────────────────────────────
         if self._last_time is None:
-            dt = 0.6                      # ~1.7 Hz actual frame rate (not 30 Hz)
+            dt = 0.067                    # first frame: assume ~15 Hz (OV2710 USB camera)
         else:
             dt = max(now - self._last_time, 0.005)   # clamp to avoid div-by-zero
         self._last_time = now
@@ -231,53 +231,61 @@ class LaneDetectorNode(Node):
 
     def _compute_error(self, left_x, right_x, yellow_x, img_cx):
         """
-        Returns (error_pixels, is_valid, case_num).
+        Left-wall-following algorithm: the inner white boundary is the primary
+        reference (the 'wall').  The robot steers to keep it at a fixed image
+        fraction — naturally going straight on straight sections (wall is stable
+        → error ≈ 0) and turning smoothly on curves (wall drifts → error grows
+        → PID steers + speed scales down via _cmd_follow).
 
-        error > 0  → desired point is to the right of image centre → turn right (−ω)
-        error < 0  → desired point is to the left               → turn left  (+ω)
+        error = target_x − img_cx
+          > 0  → target is right of centre → steer right (−ω)
+          < 0  → target is left  of centre → steer left  (+ω)
 
-        Fallback priority:
-          1a. Yellow + left white   → direct midpoint (most accurate)
-          1b. Both white edges      → offset from inner edge using LANE_CENTER_OFFSET_FRAC
-          2.  Yellow + right white  → mirror yellow to infer inner boundary
-          3.  Yellow only           → steer yellow to YELLOW_TARGET_FRAC of image width
-          4.  Left white only       → steer it to LEFT_EDGE_TARGET_FRAC of image width
-          5.  Nothing               → not valid
+        Priority (highest → lowest):
+          1. Left white + yellow  → direct lane midpoint (most accurate)
+          2. Left white + right   → centre via inner-edge offset
+          3. Left white only      → pure wall-follow: keep inner edge at LEFT_EDGE_TARGET_FRAC
+          4. Yellow + right white → mirror yellow to infer inner boundary (fallback)
+          5. Yellow only          → steer yellow to YELLOW_TARGET_FRAC (last resort)
+          6. Nothing              → not valid → SEARCHING
 
-        All cases apply FISHEYE_OUTWARD_BIAS_PX to compensate for the 182° fisheye
-        lens compressing objects near the image edges (inner white appears closer
-        to center than it physically is).
+        Cases 1, 2, 4 apply FISHEYE_OUTWARD_BIAS_PX to push the computed lane
+        centre outward, countering the 182° fisheye compression at image edges.
+        Cases 3 and 5 target the marker directly — no bias needed as the target
+        fractions (LEFT_EDGE_TARGET_FRAC, YELLOW_TARGET_FRAC) are tuned to
+        already encode the desired standoff distance.
         """
         w = img_cx * 2  # full image width
 
-        # Case 1a – yellow + left white (best: direct boundaries of the left lane)
-        if yellow_x is not None and left_x is not None:
+        # Case 1 – left white + yellow: direct boundaries of left lane (best)
+        if left_x is not None and yellow_x is not None:
             left_lane_center = (left_x + yellow_x) // 2 + FISHEYE_OUTWARD_BIAS_PX
             return left_lane_center - img_cx, True, 1
 
-        # Case 1b – both white edges (no yellow visible)
+        # Case 2 – left white + right white: centre via inner-edge fraction
         if left_x is not None and right_x is not None:
             road_width       = right_x - left_x
             left_lane_center = left_x + int(road_width * LANE_CENTER_OFFSET_FRAC) + FISHEYE_OUTWARD_BIAS_PX
             return left_lane_center - img_cx, True, 2
 
-        # Case 2 – yellow + right white (mirror yellow to estimate inner boundary)
+        # Case 3 – left white only: pure left-wall follow
+        # Inner edge at LEFT_EDGE_TARGET_FRAC → stable on straights, steers on curves.
+        if left_x is not None:
+            target = int(w * LEFT_EDGE_TARGET_FRAC)
+            return left_x - target, True, 3
+
+        # Case 4 – yellow + right white: mirror yellow to estimate inner boundary
         if yellow_x is not None and right_x is not None:
             inferred_left    = 2 * yellow_x - right_x
             left_lane_center = (inferred_left + yellow_x) // 2 + FISHEYE_OUTWARD_BIAS_PX
-            return left_lane_center - img_cx, True, 3
+            return left_lane_center - img_cx, True, 4
 
-        # Case 3 – yellow only: keep yellow at YELLOW_TARGET_FRAC of image width
+        # Case 5 – yellow only: steer yellow to YELLOW_TARGET_FRAC (last resort)
         if yellow_x is not None:
             target = int(w * YELLOW_TARGET_FRAC)
-            return yellow_x - target, True, 4
+            return yellow_x - target, True, 5
 
-        # Case 4 – left white only: keep it at LEFT_EDGE_TARGET_FRAC of image width
-        if left_x is not None:
-            target = int(w * LEFT_EDGE_TARGET_FRAC)
-            return left_x - target, True, 5
-
-        # Case 5 – nothing detected
+        # Case 6 – nothing detected
         return 0, False, 6
 
     # ── Publishers ────────────────────────────────────────────────────────────

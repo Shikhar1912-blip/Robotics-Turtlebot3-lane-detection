@@ -47,8 +47,7 @@ def _start_xvfb(display_num=1, width=1280, height=1024, depth=24):
 def generate_launch_description():
 
     tb3_gazebo_pkg = get_package_share_directory('turtlebot3_gazebo')
-    pkg_path = os.path.join(
-        os.path.expanduser('~'), 'turtlebot3_lane_ws/src/lane_detection')
+    pkg_path = get_package_share_directory('lane_detection')
 
     # ── Start Xvfb for gzserver (provides software GLX for camera sensors) ────
     xvfb_display = _start_xvfb(display_num=1)

@@ -117,24 +117,39 @@ error = target_x − img_cx
 - **Positive error**: target is right of image centre → steer right → `angular_z < 0`
 - **Negative error**: target is left of image centre → steer left → `angular_z > 0`
 
+### Left-wall-following algorithm
+
+The inner white boundary (left edge) is the **primary reference**.  When it is
+visible the robot steers directly against it, keeping a constant standoff.  On a
+straight section the wall stays at a fixed image column → error ≈ 0 → robot goes
+straight at `LINEAR_MAX`.  On a curve the wall drifts in the image → error grows
+→ PID steers and speed scales down (`_cmd_follow`).
+
+Yellow and right-white detections are **fallbacks** used only when the left wall
+is not visible.
+
 ### Priority order (highest to lowest)
 
 | # | Condition | Target formula |
 |---|-----------|----------------|
-| 1 | yellow AND left white | `(left_x + yellow_x) / 2 + FISHEYE_OUTWARD_BIAS_PX` |
-| 2 | both white edges | `left_x + LANE_CENTER_OFFSET_FRAC × (right_x − left_x) + FISHEYE_OUTWARD_BIAS_PX` |
-| 3 | yellow AND right white | `inferred_left = 2·yellow_x − right_x`; then `(inferred_left + yellow_x)/2 + bias` |
-| 4 | yellow only | `error = yellow_x − int(w × YELLOW_TARGET_FRAC)` |
-| 5 | left white only | `error = left_x − int(w × LEFT_EDGE_TARGET_FRAC)` |
+| 1 | left white AND yellow | `(left_x + yellow_x) / 2 + FISHEYE_OUTWARD_BIAS_PX` |
+| 2 | left white AND right white | `left_x + LANE_CENTER_OFFSET_FRAC × (right_x − left_x) + FISHEYE_OUTWARD_BIAS_PX` |
+| 3 | **left white only** | `error = left_x − int(w × LEFT_EDGE_TARGET_FRAC)` ← pure wall-follow |
+| 4 | yellow AND right white | `inferred_left = 2·yellow_x − right_x`; then `(inferred_left + yellow_x)/2 + bias` |
+| 5 | yellow only | `error = yellow_x − int(w × YELLOW_TARGET_FRAC)` |
 | 6 | nothing | `valid = False` |
 
 ### Fisheye correction
 
-`FISHEYE_OUTWARD_BIAS_PX = 10` is added to Cases 1–3 only (not 4/5).
+`FISHEYE_OUTWARD_BIAS_PX = 10` is added to Cases 1, 2, and 4 only.
+
+Cases 3 and 5 target the marker position directly — no bias is added because
+`LEFT_EDGE_TARGET_FRAC` and `YELLOW_TARGET_FRAC` are tuned constants that already
+encode the desired standoff distance accounting for fisheye distortion.
 
 The 182° fisheye compresses objects near the image edges — the inner white boundary
-appears closer to image centre than it physically is. Adding 10 px pushes the computed
-lane centre outward, countering this distortion.
+appears closer to image centre than it physically is. Adding 10 px in Cases 1/2/4
+pushes the computed lane centre outward, countering this distortion.
 
 ---
 
